@@ -46,8 +46,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="NetConnect.cs" />
     <Compile Include="Photos.cs" />
     <Compile Include="BestWallpaper.cs" />
+    <Compile Include="PicStore.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

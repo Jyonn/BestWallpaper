@@ -6,7 +6,12 @@ using System.Threading.Tasks;
 
 namespace BestWallpaper
 {
-    class Photos
+    public class SimplePhoto
+    {
+        public string path;
+        //SimplePhoto(string path, DateTime datetime) { this.path = path; this.datetime = datetime; }
+    }
+    class Photo
     {
         public string id;
         //public string created_at;

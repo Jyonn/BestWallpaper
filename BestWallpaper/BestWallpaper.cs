@@ -1,90 +1,157 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Text;
 using Newtonsoft.Json;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.IO;
 
 namespace BestWallpaper
 {
     class BestWallpaper
     {
-        public static string HttpGet(string Url, string postDataStr)
-        {
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url + (postDataStr == "" ? "" : "?") + postDataStr);
-            request.Method = "GET";
-            request.ContentType = "text/html;charset=UTF-8";
-
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-            Stream myResponseStream = response.GetResponseStream();
-            StreamReader myStreamReader = new StreamReader(myResponseStream, Encoding.UTF8);
-            string retString = myStreamReader.ReadToEnd();
-            myStreamReader.Close();
-            myResponseStream.Close();
-
-            return retString;
-        }
-        public static string HttpDownloadFile(string url, string path)
-        {
-            // 设置参数
-            HttpWebRequest request = WebRequest.Create(url) as HttpWebRequest;
-            //发送请求并获取相应回应数据
-            HttpWebResponse response = request.GetResponse() as HttpWebResponse;
-            //直到request.GetResponse()程序才开始向目标网页发送Post请求
-            Stream responseStream = response.GetResponseStream();
-            //创建本地文件写入流
-            Stream stream = new FileStream(path, FileMode.Create);
-            byte[] bArr = new byte[1024];
-            int size = responseStream.Read(bArr, 0, (int)bArr.Length);
-            while (size > 0)
-            {
-                stream.Write(bArr, 0, size);
-                size = responseStream.Read(bArr, 0, (int)bArr.Length);
-            }
-            stream.Close();
-            responseStream.Close();
-            return path;
-        }
-
-        
-        const int SPI_SETDESKWALLPAPER = 0X0014;
-        const int SPIF_UPDATEINIFILE = 0x01;
-        const int SPIF_SENDWININICHANGE = 0x02;
+        static Mutex mutex = new Mutex();
+        static int SPI_SETDESKWALLPAPER = 0X0014;
+        static int SPIF_UPDATEINIFILE = 0x01;
+        static int SPIF_SENDWININICHANGE = 0x02;
         [DllImport("user32.dll", EntryPoint = "SystemParametersInfo")]
         public static extern bool SystemParametersInfo(int uiAction, int uiParam, String pvParam, int fWinIni);
+        //[DllImport("user32.dll", EntryPoint = "ShowWindow", SetLastError = true)]
+        //private static extern bool ShowWindow(IntPtr hWnd, uint nCmdShow);
+        //[DllImport("user32.dll", EntryPoint = "FindWindow", SetLastError = true)]
+        //private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        //public static void WindowHide(string consoleTitle)
+        //{
+        //    IntPtr a = FindWindow("ConsoleWindowClass", consoleTitle);
+        //    if (a != IntPtr.Zero)
+        //        ShowWindow(a, 0);//隐藏窗口  
+        //    else
+        //        throw new Exception("can't hide console window");
+        //}
+
         static void Main(string[] args)
         {
+            //WindowHide(System.Console.Title);
             RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true);
-            key.SetValue(@"WallpaperStyle", 10.ToString());
-            //key.SetValue(@"TileWallpaper", 0.ToString());
-            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, Environment.CurrentDirectory+@"\JlPPDDD666ggg443.jpg", SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
+            key.SetValue(@"WallpaperStyle", 10.ToString()); //填充
+
+            new Thread(Download).Start();
+            new Thread(changeWallpaper).Start();
+        }
+        static int photoIndex = 0;
+        static void changeWallpaper()
+        {
+            int changeTimeInt = 1000 * 10;
+            while (true)
+            {
+                int oldPhotoIndex = photoIndex;
+                //Console.WriteLine("ChangeWallpaper() try to change in " + PicStore.simplePhotos.Count + " pictures ... ");
+
+                mutex.WaitOne();
+                //Console.WriteLine("ChangeWallpaper() get mutex...");
+                if (PicStore.simplePhotos.Count <= 0)
+                {
+                    mutex.ReleaseMutex();
+                    //Console.WriteLine("ChangeWallpaper() release mutex...");
+                    Thread.Sleep(changeTimeInt);
+                    continue;
+                }
+                if (PicStore.simplePhotos.Count <= photoIndex)
+                    photoIndex = 0;
+                else
+                    photoIndex = (photoIndex + 1) % PicStore.simplePhotos.Count;
+                while (PicStore.Touch(photoIndex) == false)
+                {
+                    if (PicStore.simplePhotos.Count <= 0)
+                    {
+                        Thread.Sleep(changeTimeInt);
+                        continue;
+                    }
+                    if (PicStore.simplePhotos.Count <= photoIndex)
+                        photoIndex = 0;
+                }
+                String absPath = Environment.CurrentDirectory + @"\" + PicStore.simplePhotos[photoIndex].path;
+                mutex.ReleaseMutex();
+                //Console.WriteLine("ChangeWallpaper() release mutex...");
+
+                if (photoIndex != oldPhotoIndex)
+                {
+                    Console.WriteLine("ChangeWallpaper() change To " + absPath);
+                    SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, absPath, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
+                }
+                Thread.Sleep(changeTimeInt);
+            }
         }
         public delegate string FuncHandle(string url, string path);
-        static FuncHandle fh = new FuncHandle(HttpDownloadFile);
+        static FuncHandle fh = new FuncHandle(NetConnect.HttpDownloadFile);
         public static void AsyncCallbackImpl(IAsyncResult ar)
         {
-            string re = fh.EndInvoke(ar);
+            string path;
+            try
+            {
+                path = fh.EndInvoke(ar);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Callback() failed to download...");
+                return;
+            }
+            Console.WriteLine(path + "\t Done...");
+            SimplePhoto item = new SimplePhoto();
+            item.path = path;
+
+            mutex.WaitOne();
+            //Console.WriteLine("Callback() get mutex...");
+            SimplePhoto r = PicStore.simplePhotos.Find(
+                delegate (SimplePhoto simplePhoto)
+                {
+                    return simplePhoto.path.Equals(path);
+                });
+            if (r == null)
+            {
+                if (PicStore.simplePhotos.Count > PicStore.iMaxPicNum)
+                    PicStore.Remove(0);
+                PicStore.simplePhotos.Add(item);
+            }
+            PicStore.Save();
+            mutex.ReleaseMutex();
+            //Console.WriteLine("Callback() release mutex...");
         }
         static AsyncCallback callback = new AsyncCallback(AsyncCallbackImpl);
 
-        static void Download(string[] args)
+        static string url = "https://api.unsplash.com/photos/?client_id=064937caaac57ac9c253c26c242231b17a4f0a145b0051bc4be554c6f8093a71";
+        static string data = "";
+        static void Download()
         {
-            string url = "https://api.unsplash.com/photos/?client_id=064937caaac57ac9c253c26c242231b17a4f0a145b0051bc4be554c6f8093a71";
-            string data = "";
-            string result = HttpGet(url, data);
-            //Console.WriteLine(result);
-            //Console.ReadLine();
-            
-            List<Photos> photos = JsonConvert.DeserializeObject<List<Photos>>(result);
-            foreach (Photos photo in photos)
+            int downloadTimeInt = 1000 * 60 * 20;
+            while (true)
             {
-                Console.WriteLine(photo.id + "\t" + photo.user.name + "(" + photo.user.username + ")" + "\t" + photo.urls.regular);
-                fh.BeginInvoke(photo.urls.regular, photo.id + "_rg.jpg", callback, null);
-                //HttpDownloadFile(photo.urls.thumb, photo.id + ".jpg");
-                
+                Console.WriteLine("Download() try to download...");
+                string result;
+                try
+                {
+                    result = NetConnect.HttpGet(url, data);
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine("Download() fail to get response...");
+                    Thread.Sleep(downloadTimeInt);
+                    continue;
+                }
+                //Console.WriteLine(result);
+                //Console.ReadLine();
+
+                List<Photo> photos = JsonConvert.DeserializeObject<List<Photo>>(result);
+                int i = 0;
+                foreach (Photo photo in photos)
+                {
+                    Console.WriteLine("Download() " + i++ + "\t" + photo.id + "\t Downloading...");
+                    fh.BeginInvoke(photo.urls.regular, photo.id + "_rg.jpg", callback, null);
+                    //HttpDownloadFile(photo.urls.thumb, photo.id + ".jpg");
+                }
+                Console.WriteLine("Download wait for next download...");
+                Thread.Sleep(downloadTimeInt);
             }
         }
     }
