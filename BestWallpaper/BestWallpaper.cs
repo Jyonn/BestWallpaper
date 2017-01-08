@@ -10,68 +10,8 @@ using System.Runtime.InteropServices;
 
 namespace BestWallpaper
 {
-    class Program
+    class BestWallpaper
     {
-        public class Photos
-        {
-            public string id;
-            //public string created_at;
-            //public int width;
-            //public int height;
-            //public string color;
-            public int likes;
-            //public bool liked_by_user;
-            public User user;
-            public class User
-            {
-                //public string id;
-                public string username;
-                public string name;
-                //public string first_name;
-                //public string last_name;
-                //public string portfolio_url;
-                //public string bio;
-                //public string location;
-                //public int total_likes;
-                //public int total_photos;
-                //public int total_collections;
-                public ProfileImage profileImage;
-                public class ProfileImage
-                {
-                    public string small;
-                    //public string medium;
-                    //public string large;
-                }
-                //public Links links;
-                //public class Links
-                //{
-                //    public string self;
-                //    public string html;
-                //    public string photos;
-                //    public string likes;
-                //    public string portfolio;
-                //    public string following;
-                //    public string followers;
-                //}
-            }
-            public Urls urls;
-            public class Urls
-            {
-                public string raw;
-                public string full;
-                public string regular;
-                public string small;
-                public string thumb;
-            }
-            //public Links links;
-            //public class Links
-            //{
-            //    public string self;
-            //    public string html;
-            //    public string download;
-            //    public string download_location;
-            //}
-        }
         public static string HttpGet(string Url, string postDataStr)
         {
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url + (postDataStr == "" ? "" : "?") + postDataStr);
@@ -122,6 +62,13 @@ namespace BestWallpaper
             //key.SetValue(@"TileWallpaper", 0.ToString());
             SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, Environment.CurrentDirectory+@"\JlPPDDD666ggg443.jpg", SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
         }
+        public delegate string FuncHandle(string url, string path);
+        static FuncHandle fh = new FuncHandle(HttpDownloadFile);
+        public static void AsyncCallbackImpl(IAsyncResult ar)
+        {
+            string re = fh.EndInvoke(ar);
+        }
+        static AsyncCallback callback = new AsyncCallback(AsyncCallbackImpl);
 
         static void Download(string[] args)
         {
@@ -130,13 +77,15 @@ namespace BestWallpaper
             string result = HttpGet(url, data);
             //Console.WriteLine(result);
             //Console.ReadLine();
+            
             List<Photos> photos = JsonConvert.DeserializeObject<List<Photos>>(result);
             foreach (Photos photo in photos)
             {
-                Console.WriteLine(photo.id + "\t" + photo.user.name + "(" + photo.user.username + ")" + "\t" + photo.urls.thumb);
-                HttpDownloadFile(photo.urls.thumb, photo.id + ".jpg");
+                Console.WriteLine(photo.id + "\t" + photo.user.name + "(" + photo.user.username + ")" + "\t" + photo.urls.regular);
+                fh.BeginInvoke(photo.urls.regular, photo.id + "_rg.jpg", callback, null);
+                //HttpDownloadFile(photo.urls.thumb, photo.id + ".jpg");
+                
             }
         }
-
     }
 }
