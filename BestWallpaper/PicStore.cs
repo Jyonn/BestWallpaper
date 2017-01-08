@@ -37,13 +37,13 @@ namespace BestWallpaper
         }
         public static void Remove(int index)
         {
-            if (File.Exists(simplePhotos[index].path))
-                File.Delete(simplePhotos[index].path);
+            if (File.Exists(@"pic\" + simplePhotos[index].path))
+                File.Delete(@"pic\" + simplePhotos[index].path);
             simplePhotos.Remove(simplePhotos[index]);
         }
         public static Boolean Touch(int index)
         {
-            if (File.Exists(simplePhotos[index].path))
+            if (File.Exists(@"pic\"+simplePhotos[index].path))
                 return true;
             simplePhotos.Remove(simplePhotos[index]);
             return false;

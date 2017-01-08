@@ -25,7 +25,7 @@ namespace BestWallpaper
         //{
         //    IntPtr a = FindWindow("ConsoleWindowClass", consoleTitle);
         //    if (a != IntPtr.Zero)
-        //        ShowWindow(a, 0);//隐藏窗口  
+        //        ShowWindow(a, 0);//hide window
         //    else
         //        throw new Exception("can't hide console window");
         //}
@@ -35,7 +35,7 @@ namespace BestWallpaper
             //WindowHide(System.Console.Title);
             PicStore.Load();
             RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true);
-            key.SetValue(@"WallpaperStyle", 10.ToString()); //填充
+            key.SetValue(@"WallpaperStyle", 10.ToString()); // fill style
 
             new Thread(Download).Start();
             new Thread(changeWallpaper).Start();
@@ -71,8 +71,17 @@ namespace BestWallpaper
                     }
                     if (PicStore.simplePhotos.Count <= photoIndex)
                         photoIndex = 0;
+                    if (PicStore.simplePhotos.Count <= 0)
+                        break;
                 }
-                String absPath = Environment.CurrentDirectory + @"\" + PicStore.simplePhotos[photoIndex].path;
+                if (PicStore.simplePhotos.Count <= 0)
+                {
+                    mutex.ReleaseMutex();
+                    //Console.WriteLine("ChangeWallpaper() release mutex...");
+                    Thread.Sleep(changeTimeInt);
+                    continue;
+                }
+                String absPath = Environment.CurrentDirectory + @"\pic\" + PicStore.simplePhotos[photoIndex].path;
                 mutex.ReleaseMutex();
                 //Console.WriteLine("ChangeWallpaper() release mutex...");
 
