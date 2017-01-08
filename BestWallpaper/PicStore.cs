@@ -11,12 +11,29 @@ namespace BestWallpaper
         public static List<SimplePhoto> simplePhotos = new List<SimplePhoto>();
         public static void Save()
         {
-            string absPath = Environment.CurrentDirectory + "\\" + filename;
-            System.IO.StreamWriter fWrite = new System.IO.StreamWriter(absPath, false);
-            fWrite.Write(iMaxPicNum);
-            fWrite.Write(simplePhotos);
+            StreamWriter fWrite = new StreamWriter(filename, false);
+            fWrite.WriteLine(iMaxPicNum);
+            fWrite.WriteLine(simplePhotos.Count);
+            foreach (SimplePhoto simplePhoto in simplePhotos)
+                fWrite.WriteLine(simplePhoto.path);
             fWrite.Close();
             fWrite.Dispose();
+        }
+        public static void Load()
+        {
+            if (!File.Exists(filename))
+                return;
+            StreamReader fRead = new StreamReader(filename, false);
+            iMaxPicNum = int.Parse(fRead.ReadLine());
+            int count = int.Parse(fRead.ReadLine());
+            for (int i = 0; i < count; i++)
+            {
+                SimplePhoto item = new SimplePhoto();
+                item.path = fRead.ReadLine();
+                simplePhotos.Add(item);
+            }
+            fRead.Close();
+            fRead.Dispose();
         }
         public static void Remove(int index)
         {

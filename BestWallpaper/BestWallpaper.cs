@@ -33,6 +33,7 @@ namespace BestWallpaper
         static void Main(string[] args)
         {
             //WindowHide(System.Console.Title);
+            PicStore.Load();
             RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true);
             key.SetValue(@"WallpaperStyle", 10.ToString()); //填充
 
@@ -60,7 +61,7 @@ namespace BestWallpaper
                 if (PicStore.simplePhotos.Count <= photoIndex)
                     photoIndex = 0;
                 else
-                    photoIndex = (photoIndex + 1) % PicStore.simplePhotos.Count;
+                    photoIndex = (photoIndex + PicStore.simplePhotos.Count - 1) % PicStore.simplePhotos.Count;
                 while (PicStore.Touch(photoIndex) == false)
                 {
                     if (PicStore.simplePhotos.Count <= 0)
@@ -125,6 +126,7 @@ namespace BestWallpaper
         static void Download()
         {
             int downloadTimeInt = 1000 * 60 * 20;
+            int downloadFailedTimeInt = 1000 * 10;
             while (true)
             {
                 Console.WriteLine("Download() try to download...");
@@ -136,7 +138,7 @@ namespace BestWallpaper
                 catch(Exception e)
                 {
                     Console.WriteLine("Download() fail to get response...");
-                    Thread.Sleep(downloadTimeInt);
+                    Thread.Sleep(downloadFailedTimeInt);
                     continue;
                 }
                 //Console.WriteLine(result);
