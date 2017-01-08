@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.IO;
+
 
 namespace BestWallpaper
 {
@@ -40,56 +40,61 @@ namespace BestWallpaper
             new Thread(Download).Start();
             new Thread(changeWallpaper).Start();
         }
-        static int photoIndex = 0;
+        /*
+         * changeWallpaper: timed change wallpaper from photo list
+         */
         static void changeWallpaper()
         {
-            int changeTimeInt = 1000 * 10;
+            int changeTimeInt = 1000 * 10;  // change interval time
             while (true)
             {
-                int oldPhotoIndex = photoIndex;
-                //Console.WriteLine("ChangeWallpaper() try to change in " + PicStore.simplePhotos.Count + " pictures ... ");
+                int oldPhotoIndex = PicStore.photoIndex;    // last photo index
 
-                mutex.WaitOne();
-                //Console.WriteLine("ChangeWallpaper() get mutex...");
-                if (PicStore.simplePhotos.Count <= 0)
+                mutex.WaitOne();    // get mutex of PicStore.simplePhoto
+                if (PicStore.simplePhotos.Count <= 0)   // no photo in lsit
                 {
                     mutex.ReleaseMutex();
-                    //Console.WriteLine("ChangeWallpaper() release mutex...");
                     Thread.Sleep(changeTimeInt);
                     continue;
                 }
-                if (PicStore.simplePhotos.Count <= photoIndex)
-                    photoIndex = 0;
+                if (PicStore.simplePhotos.Count <= PicStore.photoIndex) // photoIndex is too large
+                    PicStore.photoIndex = 0;
                 else
-                    photoIndex = (photoIndex + PicStore.simplePhotos.Count - 1) % PicStore.simplePhotos.Count;
-                while (PicStore.Touch(photoIndex) == false)
+                    // get next photo index
+                    PicStore.photoIndex = (PicStore.photoIndex + PicStore.simplePhotos.Count - 1) % PicStore.simplePhotos.Count;
+                // check if exist
+                while (PicStore.Touch(PicStore.photoIndex) == false)
                 {
+                    // not exist, change to another
                     if (PicStore.simplePhotos.Count <= 0)
                     {
                         Thread.Sleep(changeTimeInt);
                         continue;
                     }
-                    if (PicStore.simplePhotos.Count <= photoIndex)
-                        photoIndex = 0;
+                    if (PicStore.simplePhotos.Count <= PicStore.photoIndex)
+                        PicStore.photoIndex = 0;
                     if (PicStore.simplePhotos.Count <= 0)
                         break;
                 }
+                // check if list is null
                 if (PicStore.simplePhotos.Count <= 0)
                 {
                     mutex.ReleaseMutex();
-                    //Console.WriteLine("ChangeWallpaper() release mutex...");
                     Thread.Sleep(changeTimeInt);
                     continue;
                 }
-                String absPath = Environment.CurrentDirectory + @"\pic\" + PicStore.simplePhotos[photoIndex].path;
-                mutex.ReleaseMutex();
-                //Console.WriteLine("ChangeWallpaper() release mutex...");
+                // absolute path of image
+                String absPath = Environment.CurrentDirectory + @"\pic\" + PicStore.simplePhotos[PicStore.photoIndex].path;
+                mutex.ReleaseMutex();   // release mutex of PicStore.simplePhotos
 
-                if (photoIndex != oldPhotoIndex)
+                // if index is same, no need change wallpaper
+                if (PicStore.photoIndex != oldPhotoIndex)
                 {
-                    Console.WriteLine("ChangeWallpaper() change To " + absPath);
+                    Console.WriteLine("ChangeWallpaper() change To " + absPath.Substring(absPath.LastIndexOf('\\')+1));
                     SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, absPath, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
                 }
+
+                // sleep interval time
                 Thread.Sleep(changeTimeInt);
             }
         }

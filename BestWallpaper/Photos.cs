@@ -6,11 +6,17 @@ using System.Threading.Tasks;
 
 namespace BestWallpaper
 {
+    /*
+     * SimplePhoto: date saved in data.dat
+     */
     public class SimplePhoto
     {
         public string path;
         //SimplePhoto(string path, DateTime datetime) { this.path = path; this.datetime = datetime; }
     }
+    /*
+     * Photo: class for JSON response
+     */
     class Photo
     {
         public string id;

@@ -1,22 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.IO;
 using System.Net;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace BestWallpaper
 {
+    /*
+     * NetConnect: Provide functions based on HTTP
+     */
     class NetConnect
     {
-        public static string HttpGet(string Url, string postDataStr)
+        /*
+         * HttpGet: Implement GET method in HTTP
+         * @Param url: website url
+         * @Param dateStr: get parameters
+         */
+        public static string HttpGet(string url, string dateStr)
         {
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url + (postDataStr == "" ? "" : "?") + postDataStr);
-            request.Method = "GET";
-            request.ContentType = "text/html;charset=UTF-8";
-
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            // set url
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url + (dateStr == "" ? "" : "?") + dateStr);
+            request.Method = "GET"; // set method
+            request.ContentType = "text/html;charset=UTF-8";    // set contentType
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();  // send request
             Stream myResponseStream = response.GetResponseStream();
             StreamReader myStreamReader = new StreamReader(myResponseStream, Encoding.UTF8);
             string retString = myStreamReader.ReadToEnd();
@@ -25,26 +29,28 @@ namespace BestWallpaper
 
             return retString;
         }
+
+        /*
+         * HttpDownloadFile: file download function
+         * @Param url: file url
+         * @Param path: save file path
+         */
         public static string HttpDownloadFile(string url, string path)
         {
-            // 设置参数
-            HttpWebRequest request = WebRequest.Create(url) as HttpWebRequest;
-            //发送请求并获取相应回应数据
-            HttpWebResponse response = request.GetResponse() as HttpWebResponse;
-            //直到request.GetResponse()程序才开始向目标网页发送Post请求
+            HttpWebRequest request = WebRequest.Create(url) as HttpWebRequest;  // set url
+            HttpWebResponse response = request.GetResponse() as HttpWebResponse;    // send request
             Stream responseStream = response.GetResponseStream();
-            //创建本地文件写入流
-            Stream stream = new FileStream(@"pic\"+path, FileMode.Create);
-            byte[] bArr = new byte[1024];
-            int size = responseStream.Read(bArr, 0, (int)bArr.Length);
+            Stream stream = new FileStream(@"pic\"+path, FileMode.Create);  // create local file
+            byte[] bArr = new byte[1024];   // string buffer
+            int size = responseStream.Read(bArr, 0, (int)bArr.Length);  // read from response
             while (size > 0)
             {
-                stream.Write(bArr, 0, size);
+                stream.Write(bArr, 0, size);    // write to file
                 size = responseStream.Read(bArr, 0, (int)bArr.Length);
             }
             stream.Close();
             responseStream.Close();
-            return path;
+            return path;    // return file absolute path
         }
     }
 }
