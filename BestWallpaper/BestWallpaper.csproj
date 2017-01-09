@@ -66,6 +66,7 @@
     <Compile Include="BestWallpaper.cs" />
     <Compile Include="PicStore.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Setting.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

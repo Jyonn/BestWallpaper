@@ -12,6 +12,7 @@ namespace BestWallpaper
     public class SimplePhoto
     {
         public string path;
+        //public int picMode;
         //SimplePhoto(string path, DateTime datetime) { this.path = path; this.datetime = datetime; }
     }
     /*

@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Net;
 using System.Text;
 
@@ -38,7 +39,15 @@ namespace BestWallpaper
         public static string HttpDownloadFile(string url, string path)
         {
             HttpWebRequest request = WebRequest.Create(url) as HttpWebRequest;  // set url
-            HttpWebResponse response = request.GetResponse() as HttpWebResponse;    // send request
+            HttpWebResponse response;
+            try
+            {
+                response = request.GetResponse() as HttpWebResponse;    // send request
+            }
+            catch (Exception e)
+            {
+                return null;
+            }
             Stream responseStream = response.GetResponseStream();
             Stream stream = new FileStream(@"pic\"+path, FileMode.Create);  // create local file
             byte[] bArr = new byte[1024];   // string buffer

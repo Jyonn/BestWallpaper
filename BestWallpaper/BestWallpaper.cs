@@ -33,6 +33,7 @@ namespace BestWallpaper
         static void Main(string[] args)
         {
             //WindowHide(System.Console.Title);
+            Setting.Load();
             PicStore.Load();
             RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true);
             key.SetValue(@"WallpaperStyle", 10.ToString()); // fill style
@@ -45,46 +46,43 @@ namespace BestWallpaper
          */
         static void changeWallpaper()
         {
-            int changeTimeInt = 1000 * 10;  // change interval time
             while (true)
             {
                 int oldPhotoIndex = PicStore.photoIndex;    // last photo index
 
                 mutex.WaitOne();    // get mutex of PicStore.simplePhoto
-                if (PicStore.simplePhotos.Count <= 0)   // no photo in lsit
+                if (PicStore.currentPhotos.Count <= 0)   // no photo in lsit
                 {
                     mutex.ReleaseMutex();
-                    Thread.Sleep(changeTimeInt);
+                    Thread.Sleep(Setting.changeFrequent);
                     continue;
                 }
-                if (PicStore.simplePhotos.Count <= PicStore.photoIndex) // photoIndex is too large
+                if (PicStore.currentPhotos.Count <= PicStore.photoIndex) // photoIndex is too large
                     PicStore.photoIndex = 0;
                 else
                     // get next photo index
-                    PicStore.photoIndex = (PicStore.photoIndex + PicStore.simplePhotos.Count - 1) % PicStore.simplePhotos.Count;
+                    PicStore.photoIndex = (PicStore.photoIndex + PicStore.currentPhotos.Count - 1) % PicStore.currentPhotos.Count;
                 // check if exist
                 while (PicStore.Touch(PicStore.photoIndex) == false)
                 {
                     // not exist, change to another
-                    if (PicStore.simplePhotos.Count <= 0)
+                    if (PicStore.currentPhotos.Count <= 0)
                     {
-                        Thread.Sleep(changeTimeInt);
+                        Thread.Sleep(Setting.changeFrequent);
                         continue;
                     }
-                    if (PicStore.simplePhotos.Count <= PicStore.photoIndex)
-                        PicStore.photoIndex = 0;
-                    if (PicStore.simplePhotos.Count <= 0)
-                        break;
+                    if (PicStore.currentPhotos.Count <= PicStore.photoIndex)
+                        PicStore.photoIndex = PicStore.currentPhotos.Count - 1;
                 }
                 // check if list is null
-                if (PicStore.simplePhotos.Count <= 0)
+                if (PicStore.currentPhotos.Count <= 0)
                 {
                     mutex.ReleaseMutex();
-                    Thread.Sleep(changeTimeInt);
+                    Thread.Sleep(Setting.changeFrequent);
                     continue;
                 }
                 // absolute path of image
-                String absPath = Environment.CurrentDirectory + @"\pic\" + PicStore.simplePhotos[PicStore.photoIndex].path;
+                String absPath = Environment.CurrentDirectory + @"\pic\" + PicStore.currentPhotos[PicStore.photoIndex].path;
                 mutex.ReleaseMutex();   // release mutex of PicStore.simplePhotos
 
                 // if index is same, no need change wallpaper
@@ -92,10 +90,10 @@ namespace BestWallpaper
                 {
                     Console.WriteLine("ChangeWallpaper() change To " + absPath.Substring(absPath.LastIndexOf('\\')+1));
                     SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, absPath, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
-                }
+                    }
 
                 // sleep interval time
-                Thread.Sleep(changeTimeInt);
+                Thread.Sleep(Setting.changeFrequent);
             }
         }
         public delegate string FuncHandle(string url, string path);
@@ -106,6 +104,11 @@ namespace BestWallpaper
             try
             {
                 path = fh.EndInvoke(ar);
+                if (path == null)
+                {
+                    Console.WriteLine("Callback() failed to download...");
+                    return;
+                }
             }
             catch (Exception e)
             {
@@ -117,21 +120,11 @@ namespace BestWallpaper
             item.path = path;
 
             mutex.WaitOne();
-            //Console.WriteLine("Callback() get mutex...");
-            SimplePhoto r = PicStore.simplePhotos.Find(
-                delegate (SimplePhoto simplePhoto)
-                {
-                    return simplePhoto.path.Equals(path);
-                });
-            if (r == null)
-            {
-                if (PicStore.simplePhotos.Count > PicStore.iMaxPicNum)
-                    PicStore.Remove(0);
-                PicStore.simplePhotos.Add(item);
-            }
+            if (PicStore.currentPhotos.Count > Setting.iMaxPicNum)
+                PicStore.Remove(0);
+            PicStore.currentPhotos.Add(item);
             PicStore.Save();
             mutex.ReleaseMutex();
-            //Console.WriteLine("Callback() release mutex...");
         }
         static AsyncCallback callback = new AsyncCallback(AsyncCallbackImpl);
 
@@ -139,8 +132,6 @@ namespace BestWallpaper
         static string data = "";
         static void Download()
         {
-            int downloadTimeInt = 1000 * 60 * 20;
-            int downloadFailedTimeInt = 1000 * 10;
             while (true)
             {
                 Console.WriteLine("Download() try to download...");
@@ -152,7 +143,7 @@ namespace BestWallpaper
                 catch(Exception e)
                 {
                     Console.WriteLine("Download() fail to get response...");
-                    Thread.Sleep(downloadFailedTimeInt);
+                    Thread.Sleep(Setting.downloadFailFrequent);
                     continue;
                 }
                 //Console.WriteLine(result);
@@ -163,11 +154,27 @@ namespace BestWallpaper
                 foreach (Photo photo in photos)
                 {
                     Console.WriteLine("Download() " + i++ + "\t" + photo.id + "\t Downloading...");
-                    fh.BeginInvoke(photo.urls.regular, photo.id + "_rg.jpg", callback, null);
-                    //HttpDownloadFile(photo.urls.thumb, photo.id + ".jpg");
+                    string path = Setting.picModeStr[Setting.picMode] + @"\" + photo.id + ".jpg";
+                    string url;
+                    if (Setting.picMode == Setting.PICMODE_RAW) url = photo.urls.raw;
+                    else if (Setting.picMode == Setting.PICMODE_FULL) url = photo.urls.full;
+                    else if (Setting.picMode == Setting.PICMODE_REGULAR) url = photo.urls.regular;
+                    else if (Setting.picMode == Setting.PICMODE_SMALL) url = photo.urls.small;
+                    else url = photo.urls.thumb;
+
+                    mutex.WaitOne();
+                    SimplePhoto r = PicStore.currentPhotos.Find(
+                        delegate (SimplePhoto simplePhoto)
+                        {
+                            return simplePhoto.path.Equals(path);
+                        });
+                    mutex.ReleaseMutex();
+                    if (r != null)
+                        continue;
+                    fh.BeginInvoke(url, path, callback, null);
                 }
                 Console.WriteLine("Download wait for next download...");
-                Thread.Sleep(downloadTimeInt);
+                Thread.Sleep(Setting.downloadFrequent);
             }
         }
     }
